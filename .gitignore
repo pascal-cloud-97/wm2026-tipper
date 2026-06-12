@@ -6,3 +6,5 @@ data/*.sqlite
 exports/
 cloudflared.exe
 *.tunnel.log
+.tools/
+github-login*.log
