@@ -1,0 +1,73 @@
+app:
+  title: "WM 2026 Tipper - USA, Kanada und Mexiko"
+  data_disclaimer: "Spielplan und Teilnehmer sind real; alle Resultate und Wahrscheinlichkeiten sind hypothetische Modellwerte."
+
+model:
+  max_goals: 6
+  base_home_goals: 1.45
+  base_away_goals: 1.20
+  min_expected_goals: 0.20
+  max_expected_goals: 4.50
+  fifa_rank_to_rating: 8.0
+  fifa_blend_weight: 0.25
+  calibration:
+    enabled: true
+    inverse_temperature: 1.2217979522
+    home_bias: -0.0362552611
+    draw_bias: 0.1590293986
+    away_bias: -0.1227741375
+    trained_from: "2022-01-05"
+    trained_until: "2024-12-31"
+    validation_from: "2025-01-01"
+    training_matches: 1353
+    validation_matches: 594
+    validation_raw_brier: 0.5227956385
+    validation_calibrated_brier: 0.5192083676
+    validation_raw_log_loss: 0.8913078262
+    validation_calibrated_log_loss: 0.8810219168
+  weights:
+    rating: 0.34
+    form: 0.22
+    attack_defense: 0.25
+    home_context: 0.10
+    travel: 0.04
+    head_to_head: 0.05
+    availability: 0.08
+    lineup: 0.08
+    market: 0.12
+
+scoring:
+  exact_points: 5.0
+  tendency_points: 2.0
+  goal_difference_points: 1.0
+  team_goals_points: 0.5
+  combination_mode: "additive"
+  bonus_points: 0.0
+  multiplier: 1.0
+  joker_multiplier: 1.0
+
+optimizer:
+  value_min_ev_ratio: 0.92
+  risk_min_ev_ratio: 0.75
+  value_novelty_weight: 0.18
+  risk_upside_weight: 0.25
+
+betting:
+  bankroll: 100.0
+  fractional_kelly: 0.25
+  max_stake_fraction: 0.02
+  min_edge: 0.04
+  min_expected_return: 0.03
+  max_odds_age_hours: 24.0
+  min_confidence: 0.45
+  max_data_uncertainty: 0.55
+  outright_max_odds_age_hours: 168.0
+  outright_min_market_coverage: 0.80
+  max_total_exposure_fraction: 0.10
+  max_daily_exposure_fraction: 0.05
+  minimum_portfolio_stake: 0.50
+  max_bets_per_day: 3
+
+simulation:
+  default_runs: 5000
+  random_seed: 2026

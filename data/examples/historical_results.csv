@@ -1,0 +1,30 @@
+date,home_team,away_team,home_goals,away_goals,neutral,competition
+2025-03-01,ALP,FJO,2,1,0,Demo Friendly
+2025-03-02,BER,GRA,1,0,1,Demo Friendly
+2025-03-03,CRN,EST,2,2,1,Demo Friendly
+2025-03-04,DUN,HBR,2,0,1,Demo Friendly
+2025-06-01,EST,ALP,1,2,1,Demo Cup
+2025-06-02,FJO,BER,1,1,1,Demo Cup
+2025-06-03,GRA,CRN,0,3,1,Demo Cup
+2025-06-04,HBR,DUN,1,1,1,Demo Cup
+2025-09-01,ALP,DUN,3,0,0,Demo Qualifier
+2025-09-02,BER,EST,1,2,0,Demo Qualifier
+2025-09-03,CRN,FJO,2,0,0,Demo Qualifier
+2025-09-04,GRA,HBR,2,1,0,Demo Qualifier
+2025-10-10,FJO,ALP,1,1,0,Demo Qualifier
+2025-10-11,GRA,BER,0,0,0,Demo Qualifier
+2025-10-12,EST,CRN,1,2,0,Demo Qualifier
+2025-10-13,HBR,DUN,0,2,0,Demo Qualifier
+2025-11-15,ALP,EST,2,0,0,Demo Qualifier
+2025-11-16,BER,FJO,2,1,0,Demo Qualifier
+2025-11-17,CRN,GRA,4,0,0,Demo Qualifier
+2025-11-18,DUN,HBR,1,0,0,Demo Qualifier
+2026-02-01,DUN,CRN,0,2,1,Demo Friendly
+2026-02-02,EST,BER,2,2,1,Demo Friendly
+2026-02-03,FJO,GRA,3,1,1,Demo Friendly
+2026-02-04,HBR,ALP,0,3,1,Demo Friendly
+2026-03-20,ALP,BER,2,0,1,Demo Friendly
+2026-03-21,CRN,DUN,1,1,1,Demo Friendly
+2026-03-22,EST,FJO,2,1,1,Demo Friendly
+2026-03-23,GRA,HBR,1,0,1,Demo Friendly
+

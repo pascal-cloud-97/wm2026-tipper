@@ -1,0 +1,14 @@
+match_id,date,home_team,away_team,group,stage,venue,venue_country,venue_continent,home_travel_km,away_travel_km,status
+M01,2026-06-12T18:00:00,ALP,BER,A,Group,Demo Stadium 1,Alpenland,Europe,120,4100,scheduled
+M02,2026-06-12T21:00:00,CRN,DUN,A,Group,Demo Stadium 2,Alpenland,Europe,8800,4400,scheduled
+M03,2026-06-13T18:00:00,EST,FJO,B,Group,Demo Stadium 3,Alpenland,Europe,6200,1100,scheduled
+M04,2026-06-13T21:00:00,GRA,HBR,B,Group,Demo Stadium 4,Alpenland,Europe,4700,18500,scheduled
+M05,2026-06-18T18:00:00,ALP,CRN,A,Group,Demo Stadium 2,Alpenland,Europe,180,8700,scheduled
+M06,2026-06-18T21:00:00,BER,DUN,A,Group,Demo Stadium 1,Alpenland,Europe,4200,4500,scheduled
+M07,2026-06-19T18:00:00,EST,GRA,B,Group,Demo Stadium 4,Alpenland,Europe,6300,4800,scheduled
+M08,2026-06-19T21:00:00,FJO,HBR,B,Group,Demo Stadium 3,Alpenland,Europe,1200,18400,scheduled
+M09,2026-06-24T18:00:00,DUN,ALP,A,Group,Demo Stadium 3,Alpenland,Europe,4500,150,scheduled
+M10,2026-06-24T18:00:00,BER,CRN,A,Group,Demo Stadium 4,Alpenland,Europe,4300,8900,scheduled
+M11,2026-06-25T18:00:00,HBR,EST,B,Group,Demo Stadium 1,Alpenland,Europe,18600,6100,scheduled
+M12,2026-06-25T18:00:00,FJO,GRA,B,Group,Demo Stadium 2,Alpenland,Europe,1250,4900,scheduled
+

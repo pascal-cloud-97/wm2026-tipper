@@ -1,0 +1,9 @@
+.venv/
+.venv312/
+.venv-python314-blocked/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/*.sqlite
+.git/
+

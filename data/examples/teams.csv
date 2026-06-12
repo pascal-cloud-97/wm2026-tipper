@@ -1,0 +1,10 @@
+team_id,team_name,country,continent,rating,fifa_rank,is_host,latitude,longitude
+ALP,Demo Alpen,Alpenland,Europe,1810,8,1,46.8,8.2
+BER,Demo Bernsteinküste,Bernsteinküste,Africa,1690,24,0,7.5,-5.5
+CRN,Demo Corona,Coronien,South America,1875,5,0,-15.8,-47.9
+DUN,Demo Dünen,Dünenstaat,Asia,1640,38,0,25.3,51.5
+EST,Demo Estrella,Estrelland,North America,1760,14,0,19.4,-99.1
+FJO,Demo Fjord,Fjordland,Europe,1735,18,0,59.9,10.7
+GRA,Demo Granit,Granitrepublik,Africa,1585,51,0,6.5,3.4
+HBR,Demo Harbor,Harbor Islands,Oceania,1510,72,0,-41.3,174.8
+

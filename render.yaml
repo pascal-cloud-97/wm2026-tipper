@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: wm-2026-tipper
+    runtime: docker
+    plan: free
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
