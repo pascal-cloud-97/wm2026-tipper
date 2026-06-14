@@ -109,6 +109,33 @@ class PredictionTests(unittest.TestCase):
             neutral.expected_home_goals / neutral.expected_away_goals,
         )
 
+    def test_positive_form_trend_increases_home_edge(self):
+        config = {
+            "max_goals": 6,
+            "base_home_goals": 1.4,
+            "base_away_goals": 1.2,
+            "min_expected_goals": 0.2,
+            "max_expected_goals": 4.5,
+            "weights": {"form_trend": 0.3},
+        }
+        neutral = predict_match(
+            {"home_team": "A", "away_team": "B", "data_uncertainty": 0.2},
+            config,
+        )
+        rising = predict_match(
+            {
+                "home_team": "A",
+                "away_team": "B",
+                "form_trend_diff": 1.0,
+                "data_uncertainty": 0.2,
+            },
+            config,
+        )
+        self.assertGreater(
+            rising.expected_home_goals / rising.expected_away_goals,
+            neutral.expected_home_goals / neutral.expected_away_goals,
+        )
+
     def test_enabled_calibration_changes_outcomes_but_keeps_distribution(self):
         config = {
             "max_goals": 6,

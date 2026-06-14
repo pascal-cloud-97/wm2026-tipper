@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src.feature_engineering import build_match_features
+from src.feature_engineering import build_match_features, team_form_curve
 
 
 class FeatureEngineeringTests(unittest.TestCase):
@@ -272,6 +272,97 @@ class FeatureEngineeringTests(unittest.TestCase):
         ).iloc[0]
 
         self.assertEqual(result["swisslos_home_odds"], 2.6)
+
+    def test_cards_and_match_scoped_suspensions_affect_next_match_only(self):
+        teams = pd.DataFrame(
+            [
+                {"team_id": "A", "team_name": "A", "rating": 1700},
+                {"team_id": "B", "team_name": "B", "rating": 1700},
+            ]
+        )
+        matches = pd.DataFrame(
+            [
+                {
+                    "match_id": "NEXT",
+                    "date": pd.Timestamp("2026-06-18"),
+                    "home_team": "A",
+                    "away_team": "B",
+                    "stage": "Group",
+                },
+                {
+                    "match_id": "LATER",
+                    "date": pd.Timestamp("2026-06-24"),
+                    "home_team": "A",
+                    "away_team": "B",
+                    "stage": "Group",
+                },
+            ]
+        )
+        history = pd.DataFrame(
+            [
+                {
+                    "date": pd.Timestamp("2026-06-11"),
+                    "home_team": "A",
+                    "away_team": "B",
+                    "home_goals": 2,
+                    "away_goals": 0,
+                    "home_yellow_cards": 1,
+                    "away_yellow_cards": 2,
+                    "home_red_cards": 0,
+                    "away_red_cards": 2,
+                }
+            ]
+        )
+        availability = pd.DataFrame(
+            [
+                {
+                    "team_id": "B",
+                    "player_name": "Suspended player",
+                    "status": "suspended",
+                    "impact": 0.65,
+                    "as_of": pd.Timestamp("2026-06-11"),
+                    "match_id": "NEXT",
+                    "source": "Match report",
+                }
+            ]
+        )
+
+        result = build_match_features(
+            matches,
+            teams,
+            history,
+            availability=availability,
+        ).set_index("match_id")
+
+        self.assertGreater(result.loc["NEXT", "discipline_edge"], 0)
+        self.assertGreater(result.loc["NEXT", "availability_edge"], 0)
+        self.assertTrue(pd.isna(result.loc["LATER", "availability_edge"]))
+
+    def test_form_curve_and_trend_use_only_prior_results(self):
+        history = pd.DataFrame(
+            [
+                {
+                    "date": pd.Timestamp(f"2026-06-0{day}"),
+                    "home_team": "A",
+                    "away_team": "B",
+                    "home_goals": goals,
+                    "away_goals": 1,
+                }
+                for day, goals in enumerate([0, 1, 2, 3, 4], start=1)
+            ]
+        )
+        curve = team_form_curve(
+            history,
+            "A",
+            before=pd.Timestamp("2026-06-06"),
+            window=5,
+        )
+        self.assertEqual(len(curve), 5)
+        self.assertEqual(curve.iloc[-1]["result"], "S")
+        self.assertGreater(
+            curve.iloc[-1]["rolling_points_5"],
+            curve.iloc[0]["rolling_points_5"],
+        )
 
 
 if __name__ == "__main__":

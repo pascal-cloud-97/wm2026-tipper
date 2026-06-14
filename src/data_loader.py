@@ -80,6 +80,18 @@ TABLE_SCHEMAS = {
         "numeric": {"player_rating", "expected_minutes"},
         "dates": {"as_of"},
     },
+    "match_events": {
+        "required": {
+            "match_id",
+            "team_id",
+            "player_name",
+            "event_type",
+            "minute",
+            "is_starter",
+            "source",
+        },
+        "numeric": {"minute"},
+    },
     "odds": {
         "required": {
             "match_id",
@@ -117,6 +129,7 @@ class DataBundle:
     tips: pd.DataFrame
     availability: pd.DataFrame = field(default_factory=pd.DataFrame)
     lineups: pd.DataFrame = field(default_factory=pd.DataFrame)
+    match_events: pd.DataFrame = field(default_factory=pd.DataFrame)
     odds: pd.DataFrame = field(default_factory=pd.DataFrame)
     outright_odds: pd.DataFrame = field(default_factory=pd.DataFrame)
     source_label: str = "Unbekannte Quelle"
@@ -195,7 +208,12 @@ def validate_dataframe(frame: pd.DataFrame, table_name: str) -> pd.DataFrame:
 
     for column in schema.get("dates", set()) & set(cleaned.columns):
         original_non_null = cleaned[column].notna()
-        cleaned[column] = pd.to_datetime(cleaned[column], errors="coerce", utc=True)
+        cleaned[column] = pd.to_datetime(
+            cleaned[column],
+            errors="coerce",
+            utc=True,
+            format="mixed",
+        )
         invalid = original_non_null & cleaned[column].isna()
         if invalid.any():
             rows = ", ".join(str(index + 2) for index in cleaned.index[invalid][:5])
@@ -285,6 +303,32 @@ def validate_dataframe(frame: pd.DataFrame, table_name: str) -> pd.DataFrame:
                     "lineups.expected_minutes muss zwischen 0 und 130 liegen."
                 )
 
+    if table_name == "match_events":
+        cleaned["event_type"] = (
+            cleaned["event_type"].astype(str).str.lower().str.strip()
+        )
+        allowed_events = {"yellow_card", "red_card"}
+        invalid_events = ~cleaned["event_type"].isin(allowed_events)
+        if invalid_events.any():
+            values = sorted(cleaned.loc[invalid_events, "event_type"].unique())
+            raise DataValidationError(
+                "match_events.event_type: erlaubt sind "
+                + ", ".join(sorted(allowed_events))
+                + f"; gefunden: {values[:5]}"
+            )
+        truthy = {"1", "true", "yes", "ja"}
+        falsy = {"0", "false", "no", "nein"}
+        normalized = cleaned["is_starter"].astype(str).str.lower().str.strip()
+        if (~normalized.isin(truthy | falsy)).any():
+            raise DataValidationError(
+                "match_events.is_starter muss true/false oder 1/0 sein."
+            )
+        cleaned["is_starter"] = normalized.isin(truthy)
+        if ((cleaned["minute"] < 0) | (cleaned["minute"] > 130)).any():
+            raise DataValidationError(
+                "match_events.minute muss zwischen 0 und 130 liegen."
+            )
+
     if table_name == "odds":
         prices = cleaned[["home_odds", "draw_odds", "away_odds"]]
         if (prices <= 1.0).any().any():
@@ -328,6 +372,7 @@ def load_dataset(directory: str | Path) -> DataBundle:
         "tips": root / "tips.csv",
         "availability": root / "availability.csv",
         "lineups": root / "lineups.csv",
+        "match_events": root / "match_events.csv",
         "odds": root / "odds.csv",
         "outright_odds": root / "outright_odds.csv",
     }
@@ -369,6 +414,7 @@ def validate_references(bundle: DataBundle) -> list[str]:
     for table_name, frame in (
         ("Verfügbarkeit", bundle.availability),
         ("Aufstellungen", bundle.lineups),
+        ("Kartenereignisse", bundle.match_events),
     ):
         if frame.empty:
             continue
@@ -386,6 +432,16 @@ def validate_references(bundle: DataBundle) -> list[str]:
         if unknown_matches:
             warnings.append(
                 "Aufstellungen referenzieren unbekannte match_id-Werte: "
+                + ", ".join(unknown_matches)
+            )
+    if not bundle.match_events.empty:
+        unknown_matches = sorted(
+            set(bundle.match_events["match_id"].astype(str))
+            - set(bundle.matches["match_id"].astype(str))
+        )
+        if unknown_matches:
+            warnings.append(
+                "Kartenereignisse referenzieren unbekannte match_id-Werte: "
                 + ", ".join(unknown_matches)
             )
     if not bundle.odds.empty:

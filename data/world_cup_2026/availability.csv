@@ -1,2 +1,4 @@
-team_id,player_name,status,impact,position,as_of,source
-
+team_id,player_name,status,impact,position,as_of,match_id,impact_basis,source
+RSA,Sphephelo Sithole,suspended,0.65,Center Midfielder,2026-06-11T19:00:00,M025,starter suspension heuristic,https://www.espn.com/soccer/match/_/gameId/760415
+RSA,Themba Zwane,suspended,0.35,Substitute,2026-06-11T19:00:00,M025,substitute suspension heuristic,https://www.espn.com/soccer/match/_/gameId/760415
+MEX,César Montes,suspended,0.65,Center Right Defender,2026-06-11T19:00:00,M026,starter suspension heuristic,https://www.espn.com/soccer/match/_/gameId/760415

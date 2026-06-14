@@ -153,9 +153,11 @@ def predict_match(feature_row: pd.Series | dict, model_config: dict) -> MatchPre
     else:
         rating_diff = impute_feature(fifa_rating_diff)
     form_diff = impute_feature(row.get("form_diff"))
+    form_trend_diff = impute_feature(row.get("form_trend_diff"))
     h2h_diff = impute_feature(row.get("h2h_goal_diff"))
     travel_diff = impute_feature(row.get("travel_diff_1000km"))
     availability_edge = impute_feature(row.get("availability_edge"))
+    discipline_edge = impute_feature(row.get("discipline_edge"))
     lineup_diff = impute_feature(row.get("lineup_strength_diff"))
     market_edge = impute_feature(row.get("market_log_odds_edge"))
 
@@ -180,12 +182,18 @@ def predict_match(feature_row: pd.Series | dict, model_config: dict) -> MatchPre
     contributions = {
         "Rating/FIFA": weights.get("rating", 0.34) * rating_diff / 400.0,
         "Form": weights.get("form", 0.22) * form_diff / 3.0,
+        "Formkurve": weights.get("form_trend", 0.06)
+        * form_trend_diff
+        / 3.0,
         "Angriff/Verteidigung": weights.get("attack_defense", 0.25)
         * attack_defense_edge,
         "Austragungsort": weights.get("home_context", 0.10) * context_edge,
         "Reise": weights.get("travel", 0.04) * travel_diff,
         "Direktduelle": weights.get("head_to_head", 0.05) * h2h_diff,
         "Verfügbarkeit": weights.get("availability", 0.08) * availability_edge,
+        "Disziplin/Karten": weights.get("discipline", 0.04)
+        * discipline_edge
+        / 4.0,
         "Aufstellung": weights.get("lineup", 0.08) * lineup_diff / 10.0,
         "Marktquoten": weights.get("market", 0.12) * market_edge / 2.0,
     }

@@ -107,6 +107,27 @@ class DataLoaderTests(unittest.TestCase):
         with self.assertRaises(DataValidationError):
             validate_dataframe(invalid, "availability")
 
+    def test_match_events_validate_card_type_and_starter(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "match_id": "M1",
+                    "team_id": "A",
+                    "player_name": "Player",
+                    "event_type": "red_card",
+                    "minute": 92,
+                    "is_starter": "true",
+                    "source": "Match report",
+                }
+            ]
+        )
+        result = validate_dataframe(frame, "match_events")
+        self.assertTrue(bool(result.iloc[0]["is_starter"]))
+        invalid = frame.copy()
+        invalid.loc[0, "event_type"] = "penalty"
+        with self.assertRaises(DataValidationError):
+            validate_dataframe(invalid, "match_events")
+
     def test_odds_must_be_decimal_prices_above_one(self):
         odds = pd.DataFrame(
             [

@@ -1,6 +1,6 @@
 app:
   title: "WM 2026 Tipper - USA, Kanada und Mexiko"
-  data_disclaimer: "Spielplan und Teilnehmer sind real; alle Resultate und Wahrscheinlichkeiten sind hypothetische Modellwerte."
+  data_disclaimer: "Spielplan und gespielte Endstände sind real; Wahrscheinlichkeiten und zukünftige Resultate sind hypothetische Modellwerte."
 
 model:
   max_goals: 6
@@ -28,11 +28,13 @@ model:
   weights:
     rating: 0.34
     form: 0.22
+    form_trend: 0.06
     attack_defense: 0.25
     home_context: 0.10
     travel: 0.04
     head_to_head: 0.05
     availability: 0.08
+    discipline: 0.04
     lineup: 0.08
     market: 0.12
 

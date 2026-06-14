@@ -7,6 +7,11 @@ import pandas as pd
 
 
 def _perspective_history(history: pd.DataFrame) -> pd.DataFrame:
+    def numeric(column: str) -> pd.Series:
+        if column not in history:
+            return pd.Series(np.nan, index=history.index, dtype=float)
+        return pd.to_numeric(history[column], errors="coerce")
+
     home = pd.DataFrame(
         {
             "date": history["date"],
@@ -15,6 +20,8 @@ def _perspective_history(history: pd.DataFrame) -> pd.DataFrame:
             "goals_for": history["home_goals"],
             "goals_against": history["away_goals"],
             "is_home": True,
+            "yellow_cards": numeric("home_yellow_cards"),
+            "red_cards": numeric("home_red_cards"),
         }
     )
     away = pd.DataFrame(
@@ -25,6 +32,8 @@ def _perspective_history(history: pd.DataFrame) -> pd.DataFrame:
             "goals_for": history["away_goals"],
             "goals_against": history["home_goals"],
             "is_home": False,
+            "yellow_cards": numeric("away_yellow_cards"),
+            "red_cards": numeric("away_red_cards"),
         }
     )
     long = pd.concat([home, away], ignore_index=True)
@@ -33,6 +42,36 @@ def _perspective_history(history: pd.DataFrame) -> pd.DataFrame:
         [long["goal_diff"] > 0, long["goal_diff"] == 0], [3, 1], default=0
     )
     return long.sort_values("date")
+
+
+def _team_discipline(
+    long_history: pd.DataFrame,
+    team_id: str,
+    before: pd.Timestamp,
+    window: int = 5,
+) -> dict[str, float]:
+    rows = long_history[
+        (long_history["team"] == str(team_id))
+        & (long_history["date"] < before)
+        & long_history["yellow_cards"].notna()
+        & long_history["red_cards"].notna()
+    ].tail(window)
+    if rows.empty:
+        return {
+            "yellow_cards_5": np.nan,
+            "red_cards_5": np.nan,
+            "discipline_burden_5": np.nan,
+            "discipline_matches_5": 0,
+        }
+    weights = np.linspace(0.65, 1.0, len(rows))
+    yellow = float(np.average(rows["yellow_cards"], weights=weights))
+    red = float(np.average(rows["red_cards"], weights=weights))
+    return {
+        "yellow_cards_5": yellow,
+        "red_cards_5": red,
+        "discipline_burden_5": yellow + 4.0 * red,
+        "discipline_matches_5": int(len(rows)),
+    }
 
 
 def _team_form(
@@ -54,8 +93,14 @@ def _team_form(
             f"attack_strength_{window}": np.nan,
             f"defense_strength_{window}": np.nan,
             f"matches_{window}": 0,
+            f"form_trend_{window}": np.nan,
         }
     weights = np.linspace(0.65, 1.0, len(rows))
+    trend = (
+        float(np.polyfit(np.arange(len(rows)), rows["points"], 1)[0])
+        if len(rows) >= 2
+        else np.nan
+    )
     return {
         f"form_points_{window}": float(np.average(rows["points"], weights=weights)),
         f"goals_for_{window}": float(
@@ -74,7 +119,44 @@ def _team_form(
             np.average(rows["goals_against"], weights=weights) / baseline_goals
         ),
         f"matches_{window}": int(len(rows)),
+        f"form_trend_{window}": trend,
     }
+
+
+def team_form_curve(
+    historical_results: pd.DataFrame,
+    team_id: str,
+    before: pd.Timestamp,
+    window: int = 10,
+) -> pd.DataFrame:
+    if historical_results.empty:
+        return pd.DataFrame()
+    rows = _perspective_history(historical_results)
+    rows = rows[
+        (rows["team"] == str(team_id)) & (rows["date"] < pd.Timestamp(before))
+    ].tail(window)
+    if rows.empty:
+        return pd.DataFrame()
+    curve = rows[
+        ["date", "team", "opponent", "goals_for", "goals_against", "points"]
+    ].copy()
+    curve["result"] = np.select(
+        [
+            curve["goals_for"] > curve["goals_against"],
+            curve["goals_for"] == curve["goals_against"],
+        ],
+        ["S", "U"],
+        default="N",
+    )
+    curve["score"] = (
+        curve["goals_for"].astype(int).astype(str)
+        + ":"
+        + curve["goals_against"].astype(int).astype(str)
+    )
+    curve["rolling_points_5"] = curve["points"].rolling(
+        5, min_periods=1
+    ).mean()
+    return curve.reset_index(drop=True)
 
 
 def _h2h(
@@ -115,6 +197,7 @@ def _latest_ratings(
 def _availability_burden(
     availability: pd.DataFrame | None,
     team_id: str,
+    match_id: str,
     kickoff: pd.Timestamp,
 ) -> tuple[float, int, float]:
     if availability is None or availability.empty:
@@ -123,6 +206,9 @@ def _availability_burden(
         (availability["team_id"].astype(str) == str(team_id))
         & (availability["as_of"] <= kickoff)
     ].copy()
+    if "match_id" in rows:
+        scope = rows["match_id"].fillna("").astype(str).str.strip()
+        rows = rows[(scope == "") | (scope == str(match_id))]
     if rows.empty:
         return np.nan, 0, np.nan
     rows = rows.sort_values("as_of").groupby("player_name", as_index=False).tail(1)
@@ -278,6 +364,8 @@ def build_match_features(
                 "goals_against",
                 "goal_diff",
                 "points",
+                "yellow_cards",
+                "red_cards",
             ]
         )
     else:
@@ -354,10 +442,29 @@ def build_match_features(
                 )
                 row.update({f"{prefix}_{key}": value for key, value in form.items()})
 
+        for prefix, team_id in (("home", home_id), ("away", away_id)):
+            discipline = _team_discipline(long_history, team_id, kickoff)
+            row.update(
+                {f"{prefix}_{key}": value for key, value in discipline.items()}
+            )
+        row["discipline_edge"] = (
+            row["away_discipline_burden_5"]
+            - row["home_discipline_burden_5"]
+            if pd.notna(row["home_discipline_burden_5"])
+            and pd.notna(row["away_discipline_burden_5"])
+            else np.nan
+        )
+
         row["form_diff"] = (
             row["home_form_points_5"] - row["away_form_points_5"]
             if pd.notna(row["home_form_points_5"])
             and pd.notna(row["away_form_points_5"])
+            else np.nan
+        )
+        row["form_trend_diff"] = (
+            row["home_form_trend_5"] - row["away_form_trend_5"]
+            if pd.notna(row["home_form_trend_5"])
+            and pd.notna(row["away_form_trend_5"])
             else np.nan
         )
         row["h2h_goal_diff"], row["h2h_matches"] = _h2h(
@@ -391,16 +498,17 @@ def build_match_features(
         )
 
         home_burden, home_reports, home_availability_age = _availability_burden(
-            availability, home_id, kickoff
+            availability, home_id, str(match["match_id"]), kickoff
         )
         away_burden, away_reports, away_availability_age = _availability_burden(
-            availability, away_id, kickoff
+            availability, away_id, str(match["match_id"]), kickoff
         )
         row["home_availability_burden"] = home_burden
         row["away_availability_burden"] = away_burden
         row["availability_edge"] = (
-            away_burden - home_burden
-            if pd.notna(home_burden) and pd.notna(away_burden)
+            (away_burden if pd.notna(away_burden) else 0.0)
+            - (home_burden if pd.notna(home_burden) else 0.0)
+            if pd.notna(home_burden) or pd.notna(away_burden)
             else np.nan
         )
         row["home_availability_reports"] = home_reports

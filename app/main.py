@@ -37,7 +37,10 @@ from src.betting import (  # noqa: E402
 from src.backtesting import fit_and_validate_calibrator, run_backtest  # noqa: E402
 from src.explainability import build_explanation  # noqa: E402
 from src.exporting import to_excel_bytes, to_markdown, to_srf_text  # noqa: E402
-from src.feature_engineering import build_match_features  # noqa: E402
+from src.feature_engineering import (  # noqa: E402
+    build_match_features,
+    team_form_curve,
+)
 from src.fifa_rankings import update_local_fifa_rankings  # noqa: E402
 from src.history_updater import update_history  # noqa: E402
 from src.matchday import apply_match_results  # noqa: E402
@@ -52,6 +55,7 @@ from src.swisslos_odds import (  # noqa: E402
     SwisslosOddsError,
     fetch_swisslos_odds,
 )
+from src.world_cup_updater import update_world_cup_files  # noqa: E402
 from src.storage import (  # noqa: E402
     load_paper_bets,
     load_match_odds,
@@ -165,7 +169,7 @@ def render_website_header() -> None:
           <div class="wm-badges">
             <span class="wm-badge">48 Teams</span>
             <span class="wm-badge">72 Gruppenspiele</span>
-            <span class="wm-badge">3'725 historische Spiele</span>
+            <span class="wm-badge">Aktuelle Form 5/10</span>
             <span class="wm-badge">Monte Carlo</span>
             <span class="wm-badge">Transparente Unsicherheit</span>
           </div>
@@ -403,6 +407,10 @@ def build_analysis(
                 "confidence_label": prediction.confidence_label,
                 "classification": recommendation.classification,
                 "data_uncertainty": prediction.data_uncertainty,
+                "home_form_points_5": feature_row.get("home_form_points_5"),
+                "away_form_points_5": feature_row.get("away_form_points_5"),
+                "home_form_trend_5": feature_row.get("home_form_trend_5"),
+                "away_form_trend_5": feature_row.get("away_form_trend_5"),
                 "status": match.get("status", "scheduled"),
                 "actual_result": (
                     f"{int(match['actual_home_goals'])}:"
@@ -477,8 +485,9 @@ def dashboard(
         "Verfügbarkeitsmeldungen", len(bundle.availability)
     )
     signal_columns[2].metric("Aufstellungszeilen", len(bundle.lineups))
-    signal_columns[3].metric("Quotensnapshots", len(bundle.odds))
-    signal_columns[4].metric("FIFA-Rangliste", fifa_as_of)
+    signal_columns[3].metric("Kartenereignisse", len(bundle.match_events))
+    signal_columns[4].metric("Quotensnapshots", len(bundle.odds))
+    st.caption(f"FIFA-Rangliste: Stand {fifa_as_of}")
     if bundle.availability.empty or bundle.lineups.empty or bundle.odds.empty:
         st.caption(
             "Leere Echtzeitsignale werden neutral behandelt und erhöhen die "
@@ -516,6 +525,25 @@ def dashboard(
     display["bet_stake"] = display["bet_stake"].map(
         lambda value: f"CHF {value:.2f}" if value > 0 else "-"
     )
+
+    def form_indicator(points: float, trend: float) -> str:
+        if pd.isna(points):
+            return "keine Daten"
+        arrow = "↑" if trend > 0.08 else "↓" if trend < -0.08 else "→"
+        return f"{arrow} {points:.2f} Pkt."
+
+    display["home_form"] = display.apply(
+        lambda row: form_indicator(
+            row["home_form_points_5"], row["home_form_trend_5"]
+        ),
+        axis=1,
+    )
+    display["away_form"] = display.apply(
+        lambda row: form_indicator(
+            row["away_form_points_5"], row["away_form_trend_5"]
+        ),
+        axis=1,
+    )
     display["bet_recommendation"] = display.apply(
         lambda row: (
             f"{row['bet_outcome']} - {row['bet_label']}"
@@ -531,6 +559,8 @@ def dashboard(
                 "date",
                 "home_team",
                 "away_team",
+                "home_form",
+                "away_form",
                 "actual_result",
                 "predicted_winner",
                 "winner_probability",
@@ -566,6 +596,8 @@ def dashboard(
             "bet_expected_return": "Erwarteter Ertrag",
             "bet_stake": f"Einsatz bei CHF {bankroll:.0f}",
             "actual_result": "Endstand",
+            "home_form": "Form Heim",
+            "away_form": "Form Auswärts",
             "predicted_winner": "Wahrscheinlichster Sieger",
             "winner_probability": "Sieger-/Tendenzchance",
             "hypothetical_score": "Hypothetischer Endstand",
@@ -591,6 +623,7 @@ def match_analysis(
     features: pd.DataFrame,
     predictions: dict,
     recommendations: dict,
+    bundle: DataBundle,
     scoring: ScoringRules,
     config: dict,
     strategy: str,
@@ -671,6 +704,140 @@ def match_analysis(
             )
         else:
             st.caption("Backtest-Kalibrierung ist für diese Analyse deaktiviert.")
+
+    match = bundle.matches[
+        bundle.matches["match_id"].astype(str) == str(match_id)
+    ].iloc[0]
+    team_ids = {str(match["home_team"]), str(match["away_team"])}
+    kickoff = pd.Timestamp(
+        match.get("kickoff_utc")
+        if pd.notna(match.get("kickoff_utc"))
+        else match["date"]
+    )
+    team_names = bundle.teams.set_index("team_id")["team_name"].to_dict()
+    form_frames = []
+    for team_id in (str(match["home_team"]), str(match["away_team"])):
+        curve = team_form_curve(
+            bundle.historical_results,
+            team_id,
+            kickoff,
+            window=10,
+        )
+        if not curve.empty:
+            curve["Team"] = team_names.get(team_id, team_id)
+            form_frames.append(curve)
+    st.subheader("Aktuelle Formkurve")
+    form_metrics = st.columns(4)
+    form_metrics[0].metric(
+        f"{team_names.get(str(match['home_team']), match['home_team'])} Form 5",
+        (
+            f"{feature_row.get('home_form_points_5'):.2f} Pkt."
+            if pd.notna(feature_row.get("home_form_points_5"))
+            else "keine Daten"
+        ),
+    )
+    form_metrics[1].metric(
+        "Trend Heim",
+        (
+            f"{feature_row.get('home_form_trend_5'):+.2f}"
+            if pd.notna(feature_row.get("home_form_trend_5"))
+            else "keine Daten"
+        ),
+    )
+    form_metrics[2].metric(
+        f"{team_names.get(str(match['away_team']), match['away_team'])} Form 5",
+        (
+            f"{feature_row.get('away_form_points_5'):.2f} Pkt."
+            if pd.notna(feature_row.get("away_form_points_5"))
+            else "keine Daten"
+        ),
+    )
+    form_metrics[3].metric(
+        "Trend Auswärts",
+        (
+            f"{feature_row.get('away_form_trend_5'):+.2f}"
+            if pd.notna(feature_row.get("away_form_trend_5"))
+            else "keine Daten"
+        ),
+    )
+    if form_frames:
+        form_curve = pd.concat(form_frames, ignore_index=True)
+        form_chart = px.line(
+            form_curve,
+            x="date",
+            y="rolling_points_5",
+            color="Team",
+            markers=True,
+            hover_data={
+                "opponent": True,
+                "score": True,
+                "result": True,
+                "points": True,
+                "rolling_points_5": ":.2f",
+            },
+            labels={
+                "date": "Spieldatum",
+                "rolling_points_5": "Rollierender Punkteschnitt (max. 3)",
+                "opponent": "Gegner",
+                "score": "Resultat",
+                "result": "S/U/N",
+                "points": "Punkte",
+            },
+        )
+        form_chart.update_yaxes(range=[0, 3])
+        st.plotly_chart(form_chart, width="stretch")
+    st.caption(
+        "Der Formwert gewichtet die letzten fünf Spiele. Der Trend misst, "
+        "ob die Resultate innerhalb dieser Serie steigen oder fallen und "
+        "fliesst mit kleinem Gewicht in die Prognose ein."
+    )
+
+    scoped_suspensions = bundle.availability[
+        (bundle.availability["status"].astype(str).str.lower() == "suspended")
+        & (bundle.availability["team_id"].astype(str).isin(team_ids))
+    ].copy()
+    if "match_id" in scoped_suspensions:
+        scope = scoped_suspensions["match_id"].fillna("").astype(str)
+        scoped_suspensions = scoped_suspensions[
+            (scope == "") | (scope == str(match_id))
+        ]
+    if not scoped_suspensions.empty:
+        suspended = ", ".join(
+            f"{row['player_name']} "
+            f"({team_names.get(str(row['team_id']), row['team_id'])})"
+            for row in scoped_suspensions.to_dict("records")
+        )
+        st.warning(
+            "Im Modell berücksichtigte Sperren für dieses Spiel: " + suspended
+        )
+
+    with st.expander("Berücksichtigte Karten und Sperren"):
+        cards = bundle.match_events[
+            bundle.match_events["team_id"].astype(str).isin(team_ids)
+        ].copy()
+        if cards.empty:
+            st.caption("Für diese Teams sind noch keine WM-Karten erfasst.")
+        else:
+            team_names = bundle.teams.set_index("team_id")["team_name"].to_dict()
+            cards["Team"] = cards["team_id"].astype(str).map(team_names)
+            cards["Karte"] = cards["event_type"].map(
+                {"yellow_card": "Gelb", "red_card": "Rot"}
+            )
+            cards["Minute"] = cards["minute"].astype(int)
+            st.dataframe(
+                cards[["match_id", "Team", "player_name", "Karte", "Minute"]],
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "match_id": "Spiel",
+                    "player_name": "Spieler",
+                },
+            )
+        st.caption(
+            "Rot bedeutet mindestens eine Sperre für das nächste Spiel. "
+            "Ohne bestätigte FIFA-Entscheidung wird keine längere Sperre angenommen. "
+            "Gelbe Karten fliessen als kleiner Disziplintrend ein."
+        )
 
     st.subheader("Swisslos Sporttip")
     swisslos_values = [
@@ -851,6 +1018,9 @@ def match_analysis(
             for key in [
                 "rating_diff",
                 "form_diff",
+                "home_form_trend_5",
+                "away_form_trend_5",
+                "form_trend_diff",
                 "home_goals_for_5",
                 "away_goals_for_5",
                 "home_goals_against_5",
@@ -859,6 +1029,11 @@ def match_analysis(
                 "travel_diff_1000km",
                 "home_availability_burden",
                 "away_availability_burden",
+                "home_yellow_cards_5",
+                "away_yellow_cards_5",
+                "home_red_cards_5",
+                "away_red_cards_5",
+                "discipline_edge",
                 "lineup_strength_diff",
                 "market_home_probability",
                 "market_draw_probability",
@@ -2086,6 +2261,7 @@ def data_import(bundle: DataBundle):
         "ratings",
         "availability",
         "lineups",
+        "match_events",
         "odds",
         "outright_odds",
         "tips",
@@ -2102,6 +2278,7 @@ def data_import(bundle: DataBundle):
             "ratings": bundle.ratings,
             "availability": bundle.availability,
             "lineups": bundle.lineups,
+            "match_events": bundle.match_events,
             "odds": bundle.odds,
             "outright_odds": bundle.outright_odds,
             "tips": bundle.tips,
@@ -2142,12 +2319,18 @@ def data_import(bundle: DataBundle):
         st.success("Offizieller WM-2026-Gruppenplan wiederhergestellt.")
     if st.button("Historische Resultate jetzt online aktualisieren"):
         try:
-            with st.spinner("Länderspiele werden geladen und WM-Endstände abgeglichen..."):
+            with st.spinner(
+                "Länderspiele, WM-Endstände und Karten werden geladen..."
+            ):
                 history, completed = update_history(
                     ROOT / "data" / "world_cup_2026" / "historical_results.csv",
                     since="2018-01-01",
                     as_of=date.today().isoformat(),
                     matches_path=ROOT / "data" / "world_cup_2026" / "matches.csv",
+                )
+                tournament = update_world_cup_files(
+                    ROOT / "data" / "world_cup_2026",
+                    as_of=date.today().isoformat(),
                 )
                 load_world_cup_bundle.clear()
                 st.session_state.bundle = merge_persisted_market_data(
@@ -2155,7 +2338,9 @@ def data_import(bundle: DataBundle):
                 )
             st.success(
                 f"{len(history)} historische Spiele geladen; "
-                f"{completed} WM-Endstände synchronisiert."
+                f"{max(completed, tournament['completed_matches'])} "
+                "WM-Endstände und "
+                f"{tournament['card_events']} Karten synchronisiert."
             )
             st.rerun()
         except Exception as error:
@@ -2190,6 +2375,7 @@ def data_import(bundle: DataBundle):
                     len(bundle.ratings),
                     len(bundle.availability),
                     len(bundle.lineups),
+                    len(bundle.match_events),
                     len(bundle.odds),
                     len(bundle.outright_odds),
                     len(bundle.tips),
@@ -2681,6 +2867,7 @@ def main():
             features,
             predictions,
             recommendations,
+            bundle,
             scoring,
             config,
             strategy,

@@ -1,0 +1,29 @@
+match_id,team_id,player_name,event_type,minute,is_starter,source,position
+M001,RSA,Teboho Mokoena,yellow_card,17,True,https://www.espn.com/soccer/match/_/gameId/760415,Center Right Midfielder
+M001,MEX,Brian Gutiérrez,yellow_card,23,True,https://www.espn.com/soccer/match/_/gameId/760415,Center Right Midfielder
+M001,RSA,Sphephelo Sithole,red_card,49,True,https://www.espn.com/soccer/match/_/gameId/760415,Center Midfielder
+M001,RSA,Nkosinathi Sibisi,yellow_card,74,True,https://www.espn.com/soccer/match/_/gameId/760415,Center Right Defender
+M001,RSA,Themba Zwane,red_card,84,False,https://www.espn.com/soccer/match/_/gameId/760415,Substitute
+M001,MEX,César Montes,red_card,92,True,https://www.espn.com/soccer/match/_/gameId/760415,Center Right Defender
+M002,KOR,Lee Gi-Hyuk,yellow_card,96,True,https://www.espn.com/soccer/match/_/gameId/760414,Center Left Defender
+M003,CAN,Alistair Johnston,yellow_card,11,True,https://www.espn.com/soccer/match/_/gameId/760416,Right Back
+M003,BIH,Ermedin Demirovic,yellow_card,45,True,https://www.espn.com/soccer/match/_/gameId/760416,Center Right Forward
+M003,BIH,Jovo Lukic,yellow_card,46,True,https://www.espn.com/soccer/match/_/gameId/760416,Center Left Forward
+M003,CAN,Luc de Fougerolles,yellow_card,53,True,https://www.espn.com/soccer/match/_/gameId/760416,Center Right Defender
+M003,BIH,Nikola Katic,yellow_card,93,True,https://www.espn.com/soccer/match/_/gameId/760416,Center Right Defender
+M004,QAT,Mahmoud Abunada,yellow_card,16,True,https://www.espn.com/soccer/match/_/gameId/760420,Goalkeeper
+M004,QAT,Jassem Gaber,yellow_card,23,True,https://www.espn.com/soccer/match/_/gameId/760420,Right Midfielder
+M004,SUI,Denis Zakaria,yellow_card,42,True,https://www.espn.com/soccer/match/_/gameId/760420,Right Back
+M005,BRA,Casemiro,yellow_card,37,True,https://www.espn.com/soccer/match/_/gameId/760419,Right Midfielder
+M005,BRA,Roger Ibañez,yellow_card,43,True,https://www.espn.com/soccer/match/_/gameId/760419,Right Back
+M006,HAI,Jean-Ricner Bellegarde,yellow_card,39,True,https://www.espn.com/soccer/match/_/gameId/760418,Center Left Midfielder
+M006,SCO,Aaron Hickey,yellow_card,46,True,https://www.espn.com/soccer/match/_/gameId/760418,Right Back
+M006,SCO,Findlay Curtis,yellow_card,91,False,https://www.espn.com/soccer/match/_/gameId/760418,Substitute
+M006,SCO,Kenny McLean,yellow_card,95,False,https://www.espn.com/soccer/match/_/gameId/760418,Substitute
+M007,PAR,Juan Jose Cáceres,yellow_card,10,True,https://www.espn.com/soccer/match/_/gameId/760417,Right Back
+M007,PAR,Miguel Almirón,yellow_card,53,True,https://www.espn.com/soccer/match/_/gameId/760417,Left Midfielder
+M007,USA,Tyler Adams,yellow_card,59,True,https://www.espn.com/soccer/match/_/gameId/760417,Right Midfielder
+M007,PAR,Diego Gómez,yellow_card,79,True,https://www.espn.com/soccer/match/_/gameId/760417,Right Midfielder
+M007,PAR,Alex Arce,yellow_card,88,False,https://www.espn.com/soccer/match/_/gameId/760417,Substitute
+M007,PAR,Júnior Alonso,yellow_card,93,True,https://www.espn.com/soccer/match/_/gameId/760417,Left Back
+M008,TUR,Yunus Akgün,yellow_card,86,False,https://www.espn.com/soccer/match/_/gameId/760421,Substitute
