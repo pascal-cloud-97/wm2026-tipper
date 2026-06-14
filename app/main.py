@@ -37,10 +37,8 @@ from src.betting import (  # noqa: E402
 from src.backtesting import fit_and_validate_calibrator, run_backtest  # noqa: E402
 from src.explainability import build_explanation  # noqa: E402
 from src.exporting import to_excel_bytes, to_markdown, to_srf_text  # noqa: E402
-from src.feature_engineering import (  # noqa: E402
-    build_match_features,
-    team_form_curve,
-)
+from src.feature_engineering import build_match_features  # noqa: E402
+from src.form_analysis import team_form_curve  # noqa: E402
 from src.fifa_rankings import update_local_fifa_rankings  # noqa: E402
 from src.history_updater import update_history  # noqa: E402
 from src.matchday import apply_match_results  # noqa: E402

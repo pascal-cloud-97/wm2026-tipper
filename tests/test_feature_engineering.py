@@ -2,7 +2,8 @@ import unittest
 
 import pandas as pd
 
-from src.feature_engineering import build_match_features, team_form_curve
+from src.feature_engineering import build_match_features
+from src.form_analysis import team_form_curve
 
 
 class FeatureEngineeringTests(unittest.TestCase):
