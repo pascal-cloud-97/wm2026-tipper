@@ -24,6 +24,7 @@ TEAM_ALIASES = {
     "bosniaherzegovina": "BIH",
     "czechia": "CZE",
     "curacao": "CUW",
+    "congodr": "COD",
     "ivorycoast": "CIV",
     "southkorea": "KOR",
     "turkiye": "TUR",
