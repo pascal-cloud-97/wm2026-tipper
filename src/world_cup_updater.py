@@ -21,6 +21,7 @@ SUMMARY_URL = (
 SOURCE_TEMPLATE = "https://www.espn.com/soccer/match/_/gameId/{event_id}"
 
 TEAM_ALIASES = {
+    "bosniaandherzegovina": "BIH",
     "bosniaherzegovina": "BIH",
     "czechia": "CZE",
     "curacao": "CUW",
@@ -29,6 +30,19 @@ TEAM_ALIASES = {
     "southkorea": "KOR",
     "turkiye": "TUR",
     "unitedstates": "USA",
+}
+
+COUNTRY_ALIASES = {
+    "USA": "United States",
+    "United States": "United States",
+    "Canada": "Canada",
+    "Mexico": "Mexico",
+}
+
+CONTINENT_BY_COUNTRY = {
+    "United States": "North America",
+    "Canada": "North America",
+    "Mexico": "North America",
 }
 
 
@@ -65,6 +79,129 @@ def _request_json(
     return response.json()
 
 
+def _stage_from_event(event: dict) -> str:
+    competition = event.get("competitions", [{}])[0]
+    note = str(competition.get("altGameNote", ""))
+    if "," in note:
+        return note.rsplit(",", 1)[-1].strip()
+    return note.strip() or "Knockout"
+
+
+def _event_team_ids(event: dict, lookup: dict[str, str]) -> tuple[str, str] | None:
+    competition = event.get("competitions", [{}])[0]
+    competitors = competition.get("competitors", [])
+    by_side = {item.get("homeAway"): item for item in competitors}
+    if "home" not in by_side or "away" not in by_side:
+        return None
+    home_name = by_side["home"]["team"]["displayName"]
+    away_name = by_side["away"]["team"]["displayName"]
+    home_id = lookup.get(_normalize(home_name))
+    away_id = lookup.get(_normalize(away_name))
+    if home_id is None or away_id is None:
+        return None
+    return str(home_id), str(away_id)
+
+
+def sync_world_cup_schedule(
+    matches: pd.DataFrame,
+    teams: pd.DataFrame,
+    as_of: str | date,
+    session: requests.Session | None = None,
+    lookahead_days: int = 7,
+) -> tuple[pd.DataFrame, int]:
+    client = session or requests.Session()
+    lookup = _team_lookup(teams)
+    first_date = pd.to_datetime(matches["kickoff_utc"], format="mixed").min().date()
+    cutoff = pd.Timestamp(as_of).date() + timedelta(days=lookahead_days)
+    known = {
+        (
+            str(row["home_team"]),
+            str(row["away_team"]),
+            pd.Timestamp(row["kickoff_utc"]),
+        )
+        for row in matches.to_dict("records")
+    }
+    next_match_number = int(pd.to_numeric(matches["official_match_number"]).max()) + 1
+    next_match_id = (
+        pd.to_numeric(matches["match_id"].astype(str).str.extract(r"(\d+)")[0])
+        .max()
+        .astype(int)
+        + 1
+    )
+    additions: list[dict] = []
+
+    current = first_date
+    while current <= cutoff:
+        payload = _request_json(
+            client,
+            SCOREBOARD_URL,
+            {"dates": current.strftime("%Y%m%d")},
+        )
+        for event in payload.get("events", []):
+            teams_for_event = _event_team_ids(event, lookup)
+            if teams_for_event is None:
+                continue
+            stage = _stage_from_event(event)
+            if stage.lower().startswith("group"):
+                continue
+            competition = event["competitions"][0]
+            kickoff = pd.Timestamp(competition.get("date") or event["date"])
+            if kickoff.tzinfo is not None:
+                kickoff = kickoff.tz_convert("UTC").tz_localize(None)
+            home_id, away_id = teams_for_event
+            key = (home_id, away_id, kickoff)
+            if key in known:
+                continue
+            venue = competition.get("venue", {})
+            venue_country = COUNTRY_ALIASES.get(
+                str(venue.get("address", {}).get("country", "")),
+                str(venue.get("address", {}).get("country", "")),
+            )
+            status_type = competition.get("status", {}).get("type", {})
+            is_completed = bool(status_type.get("completed"))
+            by_side = {
+                item.get("homeAway"): item
+                for item in competition.get("competitors", [])
+            }
+            additions.append(
+                {
+                    "match_id": f"M{next_match_id:03d}",
+                    "official_match_number": next_match_number,
+                    "date": kickoff.isoformat(),
+                    "kickoff_utc": kickoff.isoformat(),
+                    "home_team": home_id,
+                    "away_team": away_id,
+                    "group": "",
+                    "stage": stage,
+                    "venue": venue.get("fullName", ""),
+                    "venue_country": venue_country,
+                    "venue_continent": CONTINENT_BY_COUNTRY.get(venue_country, ""),
+                    "status": "completed" if is_completed else "scheduled",
+                    "actual_home_goals": (
+                        int(by_side["home"]["score"])
+                        if is_completed and "home" in by_side
+                        else pd.NA
+                    ),
+                    "actual_away_goals": (
+                        int(by_side["away"]["score"])
+                        if is_completed and "away" in by_side
+                        else pd.NA
+                    ),
+                }
+            )
+            known.add(key)
+            next_match_number += 1
+            next_match_id += 1
+        current += timedelta(days=1)
+
+    if not additions:
+        return matches, 0
+    updated = pd.concat([matches, pd.DataFrame(additions)], ignore_index=True)
+    updated["_kickoff"] = pd.to_datetime(updated["kickoff_utc"], format="mixed")
+    updated = updated.sort_values("_kickoff", kind="stable").drop(columns="_kickoff")
+    return updated.reset_index(drop=True), len(additions)
+
+
 def fetch_completed_world_cup_matches(
     matches: pd.DataFrame,
     teams: pd.DataFrame,
@@ -90,9 +227,7 @@ def fetch_completed_world_cup_matches(
             {"dates": current.strftime("%Y%m%d")},
         )
         for event in payload.get("events", []):
-            if event.get("status", {}).get("type", {}).get("name") != (
-                "STATUS_FULL_TIME"
-            ):
+            if not bool(event.get("status", {}).get("type", {}).get("completed")):
                 continue
             competition = event["competitions"][0]
             competitors = competition.get("competitors", [])
@@ -253,6 +388,12 @@ def update_world_cup_files(
     matches = pd.read_csv(matches_path)
     history = pd.read_csv(history_path)
     availability = pd.read_csv(availability_path)
+    matches, added_fixtures = sync_world_cup_schedule(
+        matches,
+        teams,
+        as_of,
+        session=session,
+    )
 
     results, events = fetch_completed_world_cup_matches(
         matches,
@@ -261,7 +402,13 @@ def update_world_cup_files(
         session=session,
     )
     if results.empty:
-        return {"completed_matches": 0, "card_events": 0, "suspensions": 0}
+        matches.to_csv(matches_path, index=False, encoding="utf-8")
+        return {
+            "added_fixtures": added_fixtures,
+            "completed_matches": 0,
+            "card_events": 0,
+            "suspensions": 0,
+        }
 
     result_lookup = results.set_index("match_id").to_dict("index")
     for index, match in matches.iterrows():
@@ -411,6 +558,7 @@ def update_world_cup_files(
     all_events.to_csv(events_path, index=False, encoding="utf-8")
     availability.to_csv(availability_path, index=False, encoding="utf-8")
     return {
+        "added_fixtures": added_fixtures,
         "completed_matches": int(len(results)),
         "card_events": int(len(events)),
         "suspensions": int(len(suspensions)),

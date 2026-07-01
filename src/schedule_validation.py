@@ -74,6 +74,8 @@ def audit_official_group_schedule(
     """Compare the local 72-match group schedule with the FIFA source extract."""
     issues: list[str] = []
     local = matches.copy()
+    if "stage" in local:
+        local = local[local["stage"].astype(str).str.lower() == "group"].copy()
     official = official_schedule.copy()
     local["date"] = pd.to_datetime(local["date"], errors="coerce")
     if "kickoff_utc" in local:

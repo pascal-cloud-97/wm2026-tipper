@@ -25,6 +25,7 @@ def main() -> int:
     args = parser.parse_args()
     summary = update_world_cup_files(args.data_directory, args.as_of)
     print(
+        f"Added {summary.get('added_fixtures', 0)} fixtures. "
         f"Updated {summary['completed_matches']} completed matches, "
         f"{summary['card_events']} card events and "
         f"{summary['suspensions']} suspensions through {args.as_of}."
